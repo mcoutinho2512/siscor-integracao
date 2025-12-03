@@ -1,0 +1,101 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SISCOR - Centro de Operações{% endblock %}</title>
+
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+
+    <link rel="stylesheet" href="{% static 'mapa_novo/css/cor_navbar.css' %}?v=2">
+
+    <!-- COR Design System - ADICIONAR AQUI -->
+    <link rel="stylesheet" href="{% static 'mapa_novo/css/cor_design_system.css' %}">
+    <link rel="stylesheet" href="{% static 'mapa_novo/css/cor_components.css' %}">
+    <link rel="stylesheet" href="{% static 'mapa_novo/css/cor_design_system.css' %}">
+    <link rel="stylesheet" href="{% static 'mapa_novo/css/cor_components.css' %}">
+
+    {% block extra_css %}{% endblock %}
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navbar Superior -->
+    {% include 'includes/navbar_top.html' %}
+
+    <!-- Menu de Navegação -->
+    {% include 'includes/navbar_menu.html' %}
+
+    <!-- Theme Toggle Script -->
+    <script src="{% static 'mapa_novo/js/features/theme_toggle.js' %}"></script>
+
+    <!-- Conteúdo Principal -->
+    {% block content %}{% endblock %}
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+
+
+
+    <!-- JavaScript do Menu -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🔧 Ativando menu dropdown...');
+
+            // Selecionar todos os itens com submenu
+            const menuItems = document.querySelectorAll('.cor-menu-item');
+
+            menuItems.forEach(item => {
+                const link = item.querySelector('a');
+                const submenu = item.querySelector('.cor-submenu');
+
+                if (submenu) {
+                    link.addEventListener('click', function (e) {
+                        e.preventDefault();
+
+                        // Fechar outros submenus
+                        menuItems.forEach(otherItem => {
+                            if (otherItem !== item) {
+                                otherItem.classList.remove('open');
+                            }
+                        });
+
+                        // Toggle do submenu atual
+                        item.classList.toggle('open');
+
+                        console.log('📂 Submenu toggled:', item.classList.contains('open'));
+                    });
+                }
+            });
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
+
+
+</body>
+
+</html>

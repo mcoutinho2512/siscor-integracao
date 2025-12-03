@@ -1,0 +1,318 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}SISCOR - Dashboard Principal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'mapa_novo/css/mapa.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/cor_navbar.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/cor_menu.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/cor_monitoring.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/notifications.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/layer_control_novo.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/dashboard_stats.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/dark_theme.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/dark_mode.css' %}">
+<link rel="stylesheet" href="{% static 'mapa_novo/css/settings_modal.css' %}">
+
+<style>
+/* CORREÇÃO - Botão de notificações clicável */
+.notification-btn,
+button[id*='notification'],
+#notification-button,
+.btn-notification {
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    z-index: 9999 !important;
+    position: relative !important;
+}
+
+.notification-count {
+    pointer-events: none !important;
+    user-select: none !important;
+}
+    #map {
+        position: fixed;
+        top: 146px;
+        left: 0;
+        right: 0;
+        bottom: 180px;
+        z-index: 0;
+        transition: all 0.3s ease;
+    }
+
+    #map.monitoring-collapsed {
+        bottom: 0;
+    }
+
+    /* PAINEL DE MONITORAMENTO - ESTADOS */
+    .cor-monitoring-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 180px;
+        transition: transform 0.3s ease;
+        z-index: 10;
+    }
+
+    .cor-monitoring-panel.collapsed {
+        transform: translateY(100%);
+    }
+
+    .cor-monitoring-toggle {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 11;
+        transition: bottom 0.3s ease;
+    }
+
+    .cor-monitoring-panel.collapsed ~ .cor-monitoring-toggle {
+        bottom: 0;
+    }
+
+    .custom-marker { 
+        background: transparent !important; 
+        border: none !important; 
+    }
+    
+    .marker-ocorrencia {
+        width: 32px; 
+        height: 32px; 
+        border-radius: 50%;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        color: white !important; 
+        font-size: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border: 3px solid white;
+        animation: pulse-ocorrencia 2s infinite;
+    }
+
+    @keyframes pulse-ocorrencia {
+        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    [data-card="estagio"] .cor-status-card-value,
+    [data-card="calor"] .cor-status-card-value {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<button class="cor-layers-toggle" id="layers-toggle" title="Camadas do Mapa">
+    <i class="bi bi-layers-fill"></i>
+</button>
+
+<div class="layer-control-panel-novo collapsed" id="layer-panel">
+    <div class="layer-control-header-novo">
+        <i class="bi bi-layers-fill"></i>
+        <h3>Camadas do Mapa</h3>
+    </div>
+
+    <div class="layer-control-content-novo">
+        <div class="layer-category-novo">
+            <div class="layer-category-header-novo">
+                <i class="bi bi-activity"></i><span>MONITORAMENTO</span>
+            </div>
+
+            <div class="layer-item-novo" data-layer="sirenes">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-megaphone-fill"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Sirenes</span>
+                        <span class="layer-count-novo" data-count="sirenes">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="sirenes">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+
+            <div class="layer-item-novo" data-layer="ocorrencias">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Ocorrências</span>
+                        <span class="layer-count-novo" data-count="ocorrencias">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="ocorrencias">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+
+            <div class="layer-item-novo" data-layer="eventos">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-calendar-event-fill"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Eventos</span>
+                        <span class="layer-count-novo" data-count="eventos">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="eventos">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="layer-category-novo">
+            <div class="layer-category-header-novo">
+                <i class="bi bi-cloud-rain-fill"></i><span>METEOROLOGIA</span>
+            </div>
+
+            <div class="layer-item-novo" data-layer="pluviometros">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-cloud-drizzle-fill"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Pluviômetros</span>
+                        <span class="layer-count-novo" data-count="pluviometros">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="pluviometros">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+
+            <div class="layer-item-novo" data-layer="ventos">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-wind"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Estações de Vento</span>
+                        <span class="layer-count-novo" data-count="ventos">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="ventos">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="layer-category-novo">
+            <div class="layer-category-header-novo">
+                <i class="bi bi-building-fill"></i><span>INFRAESTRUTURA</span>
+            </div>
+
+            <div class="layer-item-novo" data-layer="escolas">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-building"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Escolas</span>
+                        <span class="layer-count-novo" data-count="escolas">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="escolas">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+
+            <div class="layer-item-novo" data-layer="bensTombados">
+                <div class="layer-item-info-novo">
+                    <div class="layer-icon-novo"><i class="bi bi-building-fill-check"></i></div>
+                    <div class="layer-item-text-novo">
+                        <span class="layer-name-novo">Bens Tombados</span>
+                        <span class="layer-count-novo" data-count="bensTombados">—</span>
+                    </div>
+                </div>
+                <label class="layer-toggle-switch-novo">
+                    <input type="checkbox" checked data-toggle="bensTombados">
+                    <span class="slider-novo"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cor-monitoring-panel" id="monitoring-panel">
+    <div class="cor-monitoring-header">
+        <div class="cor-monitoring-title">
+            <i class="bi bi-activity"></i>
+            Monitoramento
+        </div>
+        <div class="cor-monitoring-actions">
+            <button class="cor-monitoring-action-btn" title="Atualizar dados">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="cor-monitoring-action-btn" title="Ver estatísticas">
+                <i class="bi bi-bar-chart"></i>
+            </button>
+            <button class="cor-monitoring-action-btn" title="Configurações">
+                <i class="bi bi-gear"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="cor-monitoring-grid">
+        <div class="cor-status-card nivel-1 active" data-card="estagio">
+            <div class="cor-status-card-label" id="estagio-label">Estágio 1</div>
+            <div class="cor-status-card-value">Nível 1</div>
+            <div class="cor-status-card-subtitle">Normalidade</div>
+        </div>
+
+        <div class="cor-status-card nivel-0" data-card="calor">
+            <div class="cor-status-card-label" id="calor-label">Calor 1</div>
+            <div class="cor-status-card-value">Nível 1</div>
+            <div class="cor-status-card-subtitle">Observação</div>
+        </div>
+
+        <div class="cor-status-card nivel-2" data-card="ocorrencias">
+            <div class="cor-status-card-label">Ocorrências</div>
+            <div class="cor-status-card-value">8</div>
+            <div class="cor-status-card-subtitle">Abertas</div>
+        </div>
+
+        <div class="cor-status-card nivel-0" data-card="tempo">
+            <div class="cor-status-card-label">Tempo</div>
+            <div class="cor-status-card-value">N0</div>
+            <div class="cor-status-card-subtitle">Estável</div>
+        </div>
+
+        <div class="cor-status-card nivel-1" data-card="mobilidade">
+            <div class="cor-status-card-label">Mobilidade</div>
+            <div class="cor-status-card-value">N1</div>
+            <div class="cor-status-card-subtitle">Normal</div>
+        </div>
+
+        <div class="cor-status-card nivel-0" data-card="eventos">
+            <div class="cor-status-card-label">Eventos</div>
+            <div class="cor-status-card-value">0</div>
+            <div class="cor-status-card-subtitle">Programados</div>
+        </div>
+    </div>
+</div>
+
+<button class="cor-monitoring-toggle" id="monitoring-toggle">
+    <i class="bi bi-chevron-down"></i>
+    <span>Ocultar Monitoramento</span>
+</button>
+
+<div id="map"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mapa_novo/js/core/map_utils.js' %}"></script>
+<script src="{% static 'mapa_novo/js/core/map_init.js' %}"></script>
+<script src="{% static 'mapa_novo/js/features/waze_integration.js' %}"></script>
+<script src="{% static 'mapa_novo/js/core/map_layers_api.js' %}"></script>
+<script src="{% static 'mapa_novo/js/core/map_interactions.js' %}"></script>
+<script src="{% static 'mapa_novo/js/features/notifications.js' %}"></script>
+<script src="{% static 'mapa_novo/js/features/cor_monitoring.js' %}"></script>
+<script src="{% static 'mapa_novo/js/features/layer_control_novo.js' %}"></script>
+<script src="{% static 'mapa_novo/js/features/theme_toggle.js' %}"></script>
+
+<script>
+
+</script>
+{% endblock %}

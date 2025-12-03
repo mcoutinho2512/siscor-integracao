@@ -1,0 +1,639 @@
+﻿@"
+import re
+from django.shortcuts import render
+from django.http import JsonResponse, HttpResponse
+from django.views.decorators.cache import cache_page, never_cache
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.utils import timezone
+from datetime import datetime
+from .models import (
+    Sirene,
+    DadosSirene,
+    Estagio,
+    ChuvaConsolidado,
+    Evento,
+    Ocorrencias,
+    EstacaoPlv,
+    DadosPlv,
+    EstacaoMet,
+    DadosMet,
+    EscolasMunicipais,
+    BensProtegidos,
+    Calor
+)
+
+# ============================================
+# VIEWS DE PÁGINAS
+# ============================================
+
+@never_cache
+def sirene_api(request):
+    """
+    API de Sirenes - Retorna todas as sirenes com seus ÃƒÂºltimos dados
+    """
+    try:
+        lista_estacoes = []
+        sirenes = Sirene.objects.all()
+        
+        for sirene in sirenes:
+            try:
+                # Pegar ÃƒÂºltimo dado da sirene
+                dados = DadosSirene.objects.filter(estacao_id=sirene.id).latest('id')
+                
+                lista_estacoes.append({
+                    "id": sirene.id,
+                    "fonte": sirene.fonte if hasattr(sirene, 'fonte') else "COR",
+                    "lat": float(sirene.lat) if sirene.lat else -22.9068,
+                    "lng": float(sirene.lon) if sirene.lon else -43.1729,
+                    "nome": sirene.nome,
+                    "cidade": sirene.municipio if hasattr(sirene, 'municipio') else "Rio de Janeiro",
+                    "status": dados.status if hasattr(dados, 'status') else "ativa",
+                    "tipo": dados.tipo if hasattr(dados, 'tipo') else "alta",
+                    "prioridade": dados.tipo if hasattr(dados, 'tipo') else "alta"
+                })
+            except DadosSirene.DoesNotExist:
+                # Se nÃƒÂ£o tem dados, adiciona com valores padrÃƒÂ£o
+                lista_estacoes.append({
+                    "id": sirene.id,
+                    "fonte": sirene.fonte if hasattr(sirene, 'fonte') else "COR",
+                    "lat": float(sirene.lat) if sirene.lat else -22.9068,
+                    "lng": float(sirene.lon) if sirene.lon else -43.1729,
+                    "nome": sirene.nome,
+                    "cidade": sirene.municipio if hasattr(sirene, 'municipio') else "Rio de Janeiro",
+                    "status": "inativa",
+                    "tipo": "baixa",
+                    "prioridade": "baixa"
+                })
+        
+        # Ordenar por tipo (prioridade)
+        lista_ordenada = sorted(lista_estacoes, key=lambda k: k['tipo'], reverse=True)
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(lista_ordenada),
+            'data': lista_ordenada
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+
+
+# ============================================
+# APIs - ESTÃƒÂGIOS DE MOBILIDADE
+# ============================================
+
+@never_cache
+def estagio_api(request):
+    """
+    API de EstÃƒÂ¡gios de Mobilidade
+    Retorna o estÃƒÂ¡gio atual da cidade
+    """
+    try:
+        av = Estagio.objects.latest('id')
+        
+        # Mapeamento de estÃƒÂ¡gios
+        estagio_map = {
+            "Normalidade": {"id": 1, "color": "#94c842", "nome": "Normalidade"},
+            "MobilizaÃƒÂ§ÃƒÂ£o": {"id": 2, "color": "#b1b1b3", "nome": "MobilizaÃƒÂ§ÃƒÂ£o"},
+            "AtenÃƒÂ§ÃƒÂ£o": {"id": 3, "color": "#f7ce12", "nome": "AtenÃƒÂ§ÃƒÂ£o"},
+            "Alerta": {"id": 4, "color": "#d72d2e", "nome": "Alerta"},
+            "Crise": {"id": 5, "color": "#a155a0", "nome": "Crise"}
+        }
+        
+        estagio_nome = av.esta
+        estagio_info = estagio_map.get(estagio_nome, estagio_map["Normalidade"])
+        
+        return JsonResponse({
+            'success': True,
+            'estagio': estagio_nome,
+            'estagio_id': estagio_info['id'],
+            'cor': estagio_info['color'],
+            'mensagem': av.geo if hasattr(av, 'geo') else '',
+            'inicio': av.data_i.isoformat() if hasattr(av, 'data_i') and av.data_i else None,
+            'data_atualizacao': datetime.now().isoformat()
+        })
+        
+    except Estagio.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'estagio': 'Normalidade',
+            'estagio_id': 1,
+            'cor': '#94c842',
+            'mensagem': 'Sistema operando normalmente',
+            'inicio': None,
+            'data_atualizacao': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+def estagio_api_app(request):
+    """API de estÃƒÂ¡gio para app mobile (formato simplificado)"""
+    try:
+        av = Estagio.objects.latest('id')
+        estagio = av.esta.upper()
+        return HttpResponse(estagio)
+    except:
+        return HttpResponse("NORMALIDADE")
+
+
+# ============================================
+# APIs - CHUVA/METEOROLOGIA
+# ============================================
+
+@cache_page(60 * 5)  # Cache de 5 minutos
+def chuva_api(request):
+    """
+    API de Dados de Chuva
+    Retorna ÃƒÂºltimo consolidado de chuva
+    """
+    try:
+        consolidado = ChuvaConsolidado.objects.latest('id')
+        
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'id': consolidado.id,
+                'valor': str(consolidado) if consolidado else 'N/A',
+                'data_atualizacao': datetime.now().isoformat()
+            }
+        })
+    except ChuvaConsolidado.DoesNotExist:
+        return JsonResponse({
+            'success': True,
+            'data': {
+                'valor': 'Sem dados',
+                'data_atualizacao': datetime.now().isoformat()
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+# ============================================
+# APIs - EVENTOS (jÃƒÂ¡ existente, melhorada)
+# ============================================
+
+@never_cache
+def api_eventos(request):
+    """API de eventos da cidade"""
+    try:
+        eventos = Evento.objects.all()[:50]  # ÃƒÅ¡ltimos 50 eventos
+        
+        data = []
+        for evento in eventos:
+            data.append({
+                'id': evento.id,
+                'nome': evento.nome if hasattr(evento, 'nome') else 'Evento',
+                'tipo': evento.tipo if hasattr(evento, 'tipo') else 'geral',
+                'lat': float(evento.lat) if hasattr(evento, 'lat') and evento.lat else -22.9068,
+                'lng': float(evento.lon) if hasattr(evento, 'lon') and evento.lon else -43.1729,
+                'data': evento.data.isoformat() if hasattr(evento, 'data') and evento.data else None,
+                'prioridade': evento.prioridade if hasattr(evento, 'prioridade') else 'media',
+                'local': evento.local if hasattr(evento, 'local') else ''
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(data),
+            'data': data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+
+
+# ============================================
+# APIs - OCORRÃƒÅ NCIAS (jÃƒÂ¡ existente, melhorada)
+# ============================================
+
+@never_cache
+def api_ocorrencias(request):
+    """API de ocorrÃƒÂªncias"""
+    try:
+        ocorrencias = Ocorrencias.objects.all().order_by('-id')[:50]
+        
+        data = []
+        for oco in ocorrencias:
+            data.append({
+                'id': oco.id,
+                'descricao': oco.descricao if hasattr(oco, 'descricao') else 'OcorrÃƒÂªncia',
+                'tipo': oco.tipo if hasattr(oco, 'tipo') else 'geral',
+                'lat': float(oco.lat) if hasattr(oco, 'lat') and oco.lat else -22.9068,
+                'lng': float(oco.lon) if hasattr(oco, 'lon') and oco.lon else -43.1729,
+                'status': oco.status if hasattr(oco, 'status') else 'aberta',
+                'prioridade': oco.prioridade if hasattr(oco, 'prioridade') else 'media',
+                'data': oco.data.isoformat() if hasattr(oco, 'data') and oco.data else None
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(data),
+            'data': data
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+
+
+# ============================================
+# APIs - OUTRAS (Placeholder para expansÃƒÂ£o futura)
+# ============================================
+
+def api_escolas(request):
+    """API de escolas (placeholder)"""
+    return JsonResponse({'success': True, 'count': 0, 'data': []})
+
+def api_hospitais(request):
+    """API de hospitais (placeholder)"""
+    return JsonResponse({'success': True, 'count': 0, 'data': []})
+
+
+
+def waze_dashboard_completo(request):
+    """Dashboard completo com todas as estatÃ­sticas"""
+    from datetime import datetime
+    
+    # Dados mockados para o template antigo
+    context = {
+        'tamanho_4': 0,
+        'pc': 0,
+        'color_pc': '228d46',
+        'hist': 0,
+        'unz': [],
+        'qt_unz': 0,
+        'baixo_v': 0,
+        'medio_v': 0,
+        'alto_v': 0,
+        'lista_estacoes_plv': [],
+        'jams_linha': [],
+        'escolas': [],
+        'hospitais': [],
+        'eventos': [],
+        'ocorrencias': [],
+        'sirenes': [],
+        'abrigos': [],
+        'alagamentos': [],
+        'bens': [],
+        'chuva': [],
+        'lista_pontos': [],
+        'sensores': []
+    }
+    
+    return render(request, 'mapa_novo/waze_dashboard.html', context)
+
+def cor_dashboard_view(request):
+    """Dashboard com design COR profissional"""
+    return render(request, 'mapa_novo/cor_dashboard.html')
+
+
+@api_view(['GET'])
+def pluviometros_view(request):
+    """API de PluviÃ´metros - EstaÃ§Ãµes de Chuva"""
+    try:
+        from aplicativo.models import EstacaoPlv, DadosPlv
+        from datetime import datetime
+        
+        data = []
+        estacoes = EstacaoPlv.objects.all()
+        
+        for estacao in estacoes:
+            if estacao.lat and estacao.lon:
+                ultimo = DadosPlv.objects.filter(estacao=estacao).order_by('-data').first()
+                
+                if ultimo:
+                    # Tratar data (pode ser string ou datetime)
+                    data_formatada = 'N/A'
+                    if ultimo.data:
+                        if isinstance(ultimo.data, str):
+                            data_formatada = ultimo.data
+                        else:
+                            data_formatada = ultimo.data.strftime('%d/%m/%Y %H:%M')
+                    
+                    data.append({
+                        'id': estacao.id,
+                        'nome': estacao.nome,
+                        'lat': float(estacao.lat),
+                        'lng': float(estacao.lon),
+                        'chuva_1h': float(ultimo.chuva_1 or 0),
+                        'chuva_4h': float(ultimo.chuva_4 or 0),
+                        'chuva_24h': float(ultimo.chuva_24 or 0),
+                        'chuva_96h': float(ultimo.chuva_96 or 0),
+                        'data': data_formatada,
+                        'status': 'ativa'
+                    })
+        
+        return Response({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f'ERRO: {e}')
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+
+# api de Vento
+@api_view(['GET'])
+def estacoes_vento_view(request):
+    """API de EstaÃ§Ãµes de Vento"""
+    try:
+        from aplicativo.models import EstacaoMet, DadosMet
+        
+        data = []
+        estacoes = EstacaoMet.objects.all()
+        
+        for estacao in estacoes:
+            if estacao.lat and estacao.lon:
+                ultimo = DadosMet.objects.filter(estacao=estacao).order_by('-data').first()
+                
+                if ultimo:
+                    data.append({
+                        'id': estacao.id,
+                        'nome': estacao.nome,
+                        'lat': float(estacao.lat),
+                        'lng': float(estacao.lon),
+                        'temperatura': float(ultimo.temp or 0),
+                        'umidade': float(ultimo.umd or 0),
+                        'direcao': str(ultimo.dire) if ultimo.dire else 'N/A',
+                        'velocidade': float(ultimo.vel or 0),
+                        'data': str(ultimo.data) if ultimo.data else 'N/A',
+                        'status': 'ativa'
+                    })
+        
+        return Response({
+            'success': True,
+            'data': data,
+            'count': len(data)
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f'ERRO: {e}')
+        print(traceback.format_exc())
+        return Response({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+
+
+@api_view(['GET'])
+def escolas_view(request):
+    """API de Escolas Municipais"""
+    from aplicativo.models import EscolasMunicipais
+    
+    data = []
+    for escola in EscolasMunicipais.objects.all():
+        data.append({
+            'id': escola.id,
+            'nome': escola.nome,
+            'lat': float(escola.y),
+            'lng': float(escola.x),
+            'endereco': str(escola.endereco or 'N/A'),
+            'bairro': str(escola.bairro or 'N/A'),
+            'telefone': str(escola.telefone or 'N/A'),
+            'tipo': 'escola_municipal'
+        })
+    
+    return Response({'success': True, 'data': data, 'count': len(data)})
+
+@api_view(['GET'])
+def bens_tombados_view(request):
+    """API de Bens Tombados"""
+    try:
+        from aplicativo.models import BensProtegidos
+        
+        data = []
+        bens = BensProtegidos.objects.all()
+        
+        for bem in bens:
+            if bem.y and bem.x:
+                data.append({
+                    'id': bem.id,
+                    'nome': bem.np or 'Bem Tombado',
+                    'lat': float(bem.y),
+                    'lng': float(bem.x),
+                    'rua': bem.rua or 'N/A',
+                    'grau': bem.grau_de_pr or 'N/A',
+                    'tipo': 'bem_tombado'
+                })
+        
+        return Response({'success': True, 'data': data, 'count': len(data)})
+    except Exception as e:
+        return Response({'success': False, 'error': str(e), 'data': []}, status=500)
+
+@api_view(['GET'])
+def escolas_view(request):
+    print('DEBUG: escolas_view foi chamada!')
+    from aplicativo.models import EscolasMunicipais
+    
+    escolas_list = list(EscolasMunicipais.objects.all())
+    print(f'DEBUG: Encontradas {len(escolas_list)} escolas')
+    
+    data = []
+    for escola in escolas_list:
+        print(f'DEBUG: Processando {escola.nome} - x={escola.x}, y={escola.y}')
+        data.append({
+            'id': escola.id,
+            'nome': escola.nome,
+            'lat': float(escola.y),
+            'lng': float(escola.x),
+            'endereco': str(escola.endereco or 'N/A'),
+            'bairro': str(escola.bairro or 'N/A'),
+            'telefone': str(escola.telefone or 'N/A'),
+            'tipo': 'escola_municipal'
+        })
+    
+    print(f'DEBUG: Retornando {len(data)} escolas')
+    return Response({'success': True, 'data': data, 'count': len(data)})
+
+
+@api_view(['GET'])
+def api_estagio(request):
+    """API de estÃ¡gio - formato novo"""
+    try:
+        from aplicativo.models import Estagio
+        from django.utils import timezone
+        
+        # Buscar Ãºltimo estÃ¡gio
+        ultimo = Estagio.objects.filter(
+            data_f__isnull=True
+        ).order_by('-data_i').first()
+        
+        if not ultimo:
+            ultimo = Estagio.objects.order_by('-data_i').first()
+        
+        if ultimo:
+            # Extrair nÃºmero do estÃ¡gio
+            estagio_texto = ultimo.esta or 'NÃ­vel 1'
+            match = re.search(r'(\d+)', estagio_texto)
+            nivel = int(match.group(1)) if match else 1
+            
+            # Mapear cores
+            cores_map = {
+                1: '#228d46',
+                2: '#f5c520',
+                3: '#ef8c3f',
+                4: '#d0262d',
+                5: '#5f2f7e'
+            }
+            
+            descricoes_map = {
+                1: 'Normalidade',
+                2: 'AtenÃ§Ã£o',
+                3: 'Alerta',
+                4: 'Alerta MÃ¡ximo',
+                5: 'Crise'
+            }
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'nivel': nivel,
+                    'nome': estagio_texto,
+                    'cor': cores_map.get(nivel, '#228d46'),
+                    'descricao': descricoes_map.get(nivel, 'Normalidade')
+                },
+                'estagio': estagio_texto,  # manter compatibilidade
+                'cor': cores_map.get(nivel, '#228d46'),
+                'estagio_id': ultimo.id,
+                'inicio': ultimo.data_i,
+                'data_atualizacao': timezone.now()
+            })
+        
+        # Se nÃ£o tem estÃ¡gio, retornar padrÃ£o
+        return Response({
+            'success': True,
+            'data': {
+                'nivel': 1,
+                'nome': 'NÃ­vel 1',
+                'cor': '#228d46',
+                'descricao': 'Normalidade'
+            },
+            'estagio': 'NÃ­vel 1',
+            'cor': '#228d46',
+            'data_atualizacao': timezone.now()
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@api_view(['GET'])
+def inserir_ocorrencia_mobile(request):
+    """
+    Endpoint compatÃ­vel com o sistema antigo
+    Recebe via GET: ?lat=X&lon=Y&descricao=Z&tipo=W
+    """
+    try:
+        ocorrencia = Ocorrencias.objects.create(
+            incidente=request.GET.get('descricao', 'OcorrÃªncia via mobile'),
+            lat=request.GET.get('lat'),
+            lon=request.GET.get('lon'),
+            tipo_forma=request.GET.get('tipo', 'Outros'),
+            prio=request.GET.get('prioridade', 'media'),
+            bairro=request.GET.get('bairro', ''),
+            status='Em andamento',
+            data=timezone.now()
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'OcorrÃªncia registrada',
+            'id': ocorrencia.id
+        })
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=400)
+
+@api_view(['GET'])
+def api_estagio_atual(request):
+    """Retorna o estÃ¡gio operacional calculado dinamicamente"""
+    try:
+        from aplicativo.models import DadosPlv, DadosMet, Ocorrencias, Evento, Calor
+        
+        # Calcular inline
+        CORES = {
+            1: {'cor': '#228d46', 'nome': 'NÃ­vel 1', 'descricao': 'Normalidade'},
+            2: {'cor': '#f5c520', 'nome': 'NÃ­vel 2', 'descricao': 'AtenÃ§Ã£o'},
+            3: {'cor': '#ef8c3f', 'nome': 'NÃ­vel 3', 'descricao': 'Alerta'},
+            4: {'cor': '#d0262d', 'nome': 'NÃ­vel 4', 'descricao': 'Alerta MÃ¡ximo'},
+            5: {'cor': '#5f2f7e', 'nome': 'NÃ­vel 5', 'descricao': 'Crise'}
+        }
+        
+        # NÃ­vel OcorrÃªncias
+        abertas = Ocorrencias.objects.count()
+        if abertas >= 50:
+            nivel_ocorrencias = 5
+        elif abertas >= 30:
+            nivel_ocorrencias = 4
+        elif abertas >= 15:
+            nivel_ocorrencias = 3
+        elif abertas >= 5:
+            nivel_ocorrencias = 2
+        else:
+            nivel_ocorrencias = 1
+        
+        # NÃ­vel Tempo (simplificado)
+        nivel_tempo = 1
+        
+        # NÃ­vel Eventos
+        nivel_eventos = 1
+        
+        # NÃ­vel geral
+        nivel_geral = int((nivel_ocorrencias + nivel_tempo + nivel_eventos) / 3)
+        
+        resultado = {
+            'nivel': nivel_geral,
+            'cor': CORES[nivel_geral]['cor'],
+            'nome': CORES[nivel_geral]['nome'],
+            'descricao': CORES[nivel_geral]['descricao'],
+            'detalhes': {
+                'tempo': {'nivel': nivel_tempo, **CORES[nivel_tempo]},
+                'ocorrencias': {'nivel': nivel_ocorrencias, **CORES[nivel_ocorrencias], 'total': abertas},
+                'eventos': {'nivel': nivel_eventos, **CORES[nivel_eventos]}
+            }
+        }
+        
+        return Response({
+            'success': True,
+            'data': resultado
+        })
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
