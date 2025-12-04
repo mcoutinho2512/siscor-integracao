@@ -80,3 +80,14 @@ staticfiles/
 *.pem
 *.key
 secrets.json
+
+# Backups de fases de correção
+*.backup_fase*
+
+# Arquivos de diagnóstico
+diagnostico_*.txt
+relatorio_sistema_*.txt
+
+# Scripts de correção temporários
+aplicar_*.py
+corrigir_*.py
