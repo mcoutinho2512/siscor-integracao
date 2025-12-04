@@ -1,28 +1,21 @@
-# -*- coding: utf-8 -*-
-"""
-SISCOR - Views
-Sistema Integrado do Centro de Operações Rio
-"""
-
-import re
+﻿import re
 import random
 import base64
-import logging
 import urllib3
-import requests
+from django.shortcuts import render
 from functools import lru_cache
 from datetime import datetime, timedelta
-
-from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import cache_page, never_cache
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from django.utils import timezone
-
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-
+from django.contrib.auth.decorators import login_required  
+from django.utils import timezone
+from datetime import datetime, timedelta
+from datetime import datetime
+import logging
+import requests  #IMPORT ADICIONADO
 from .models import (
     Sirene,
     DadosSirene,
@@ -39,9 +32,6 @@ from .models import (
     Calor
 )
 
-# Configuração do Logger
-logger = logging.getLogger(__name__)
-
 def teste_sem_login(request):
     """Teste sem login"""
     from django.http import HttpResponse
@@ -51,6 +41,7 @@ def teste_sem_login(request):
 # VIEWS DE PÁGINAS
 # ============================================
 
+@login_required(login_url='login')
 @login_required(login_url='login')
 @never_cache
 def waze_dashboard_view(request):
@@ -466,6 +457,7 @@ def waze_dashboard_completo(request):
 
     return render(request, 'mapa_novo/waze_dashboard.html', context)
 
+@login_required(login_url='login')
 @login_required(login_url='login')
 @never_cache
 def cor_dashboard_view(request):
@@ -1448,6 +1440,7 @@ def api_ventos(request):
 # ===== VIEWS DE METEOROLOGIA =====
 
 @login_required(login_url='login')
+@login_required(login_url='login')
 @never_cache
 def meteorologia_dashboard_view(request):
     """Dashboard de Meteorologia"""
@@ -1607,6 +1600,7 @@ def api_alertas_meteorologicos(request):
 
 # ===== VIEWS DE MOBILIDADE URBANA =====
 
+@login_required(login_url='login')
 @login_required(login_url='login')
 @never_cache
 def mobilidade_dashboard_view(request):
@@ -2223,6 +2217,7 @@ def alertas_api(request):
 
  #VIDEO MONITORAMENTO - SEM LOGIN
 @login_required(login_url='login')
+@login_required(login_url='login')
 @never_cache
 def videomonitoramento(request):
     return render(request, 'mapa_novo/videomonitoramento.html')
@@ -2404,11 +2399,13 @@ def estagio_proxy(request):
         }, status=500)
 
 @login_required(login_url='login')
+@login_required(login_url='login')
 @never_cache
 def mobilidade_dashboard_view(request):
     """Dashboard de Mobilidade Urbana"""
     return render(request, 'mapa_novo/mobilidade_dashboard.html')
 
+@login_required(login_url='login')
 @login_required(login_url='login')
 @never_cache
 def meteorologia_dashboard_view(request):

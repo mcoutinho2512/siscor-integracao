@@ -1,13 +1,33 @@
-django_geojson==2.10.0
-Shapely==1.6.4.post2
-emoji==0.5.3
-requests==2.21.0
-pyfcm==1.4.7
-Flask==1.0.2
-Django==2.2.3
-tweepy==3.8.0
-pytz==2018.7
-mysql_connector_repackaged==0.3.1
-pygeocoder==1.2.5
-python_dateutil==2.8.1
-WazeRouteCalculator==0.12
+# ===========================================
+# SISCOR - Dependências Python
+# ===========================================
+# Instale com: pip install -r requirements.txt
+
+# Django e REST
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+
+# Variáveis de ambiente
+python-dotenv>=1.0.0
+
+# Geolocalização
+django-geojson>=4.0.0
+django-location-field>=2.7.0
+geopy>=2.4.0
+
+# APIs e HTTP
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Datas
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Traduções
+deep-translator>=1.11.0
+
+# Firebase (notificações push)
+pyfcm>=2.0.0
+
+# Imagens
+Pillow>=10.0.0
