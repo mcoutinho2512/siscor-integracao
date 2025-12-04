@@ -1,0 +1,80 @@
+/* =============================================================================
+   SISCOR - Performance CSS (Fase 7)
+   ============================================================================= */
+
+/* Lazy loading de imagens */
+img[data-src] {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+img.loaded {
+    opacity: 1;
+}
+
+/* Otimizacao de renderizacao */
+.cor-status-card,
+.layer-control-panel-novo,
+.notification-panel {
+    will-change: transform;
+    contain: layout style;
+}
+
+/* Reducao de repaint no scroll */
+.cor-monitoring-panel {
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* Hardware acceleration para animacoes */
+.animate-fade-in-up,
+.toast,
+[class*="animate-"] {
+    transform: translateZ(0);
+}
+
+/* Otimizacao de fonte */
+body {
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Skeleton loading otimizado */
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+/* Reducao de layout shift */
+img {
+    aspect-ratio: attr(width) / attr(height);
+}
+
+/* Otimizacao de hover */
+@media (hover: hover) {
+    .cor-status-card:hover {
+        transform: translateY(-4px) translateZ(0);
+    }
+}
+
+/* Print otimizado */
+@media print {
+    .cor-navbar,
+    .cor-monitoring-toggle,
+    .cor-layers-toggle,
+    .notification-panel {
+        display: none !important;
+    }
+    
+    #map {
+        position: static !important;
+        height: auto !important;
+    }
+}
