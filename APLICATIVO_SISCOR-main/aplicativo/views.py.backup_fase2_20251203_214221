@@ -413,7 +413,7 @@ def api_ocorrencias(request):
             'data': data,
             'count': total,
             'filtro': 'hoje',
-            'data_filtro': timezone.now().date().isoformat()
+            'data_filtro': hoje.isoformat()
         })
         
     except Exception as e:
@@ -941,6 +941,97 @@ def waze_data_view(request):
         }, status=500)
         
 @csrf_exempt
+def api_ocorrencias(request):
+    """
+    API de ocorrências - APENAS DE HOJE
+    """
+    try:
+        from django.utils import timezone
+        from datetime import datetime
+        
+        # FILTRAR APENAS HOJE
+        hoje = timezone.now().date()
+        inicio_dia = timezone.make_aware(datetime.combine(hoje, datetime.min.time()))
+        fim_dia = timezone.make_aware(datetime.combine(hoje, datetime.max.time()))
+        
+        # MOSTRAR TODAS AS ABERTAS
+        ocorrencias = Ocorrencias.objects.exclude(
+        status='Concluído'
+        ).order_by('-data')
+        
+        total = ocorrencias.count()
+        
+        # Cores
+        cores_prioridade = {
+            'SECUNDÁRIO': '#10b981',
+            'BAIXO': '#10b981',
+            'MEDIO': '#f59e0b',
+            'ALTO': '#ef4444',
+            'CRITICO': '#991b1b',
+        }
+        
+        # Ícones
+        icones = {
+            'ACIDENTE': 'bi-car-front-fill',
+            'ALAGAMENTO': 'bi-water',
+            'DESLIZAMENTO': 'bi-exclamation-triangle-fill',
+            'QUEDA': 'bi-tree-fill',
+            'INCÊNDIO': 'bi-fire',
+            'VAZAMENTO': 'bi-droplet-fill',
+            'BURACO': 'bi-sign-stop-fill',
+        }
+        
+        data = []
+        for occ in ocorrencias:
+            # Determinar ícone
+            icone = 'bi-exclamation-circle-fill'
+            if occ.incidente:
+                for key, icon in icones.items():
+                    if key in occ.incidente.upper():
+                        icone = icon
+                        break
+            
+            data.append({
+                'id': occ.id,
+                'id_c': occ.id_c or '',
+                'tipo': occ.incidente or 'Outros',
+                'descricao': occ.obs or 'Sem descrição',
+                'endereco': occ.log or 'Endereço não informado',
+                'bairro': occ.bairro or '',
+                'lat': float(occ.lat) if occ.lat else None,
+                'lng': float(occ.lon) if occ.lon else None,
+                'prioridade': occ.prio or 'MEDIO',
+                'cor_prioridade': cores_prioridade.get(occ.prio, '#6b7280'),
+                'status': occ.status or 'Acionado',
+                'icone': icone,
+                'data_criacao': occ.data.isoformat() if occ.data else None,
+            })
+        
+        abertas = ocorrencias.exclude(status='Concluído').count()
+        
+        return JsonResponse({
+            'success': True,
+            'data': data,
+            'count': total,
+            'abertas': abertas,
+            'filtro': 'HOJE - ' + hoje.isoformat(),
+        })
+        
+    except Exception as e:
+        logger.error(f'Erro: {str(e)}')
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'data': []
+        }, status=500)
+    
+
+
+# ============================================
+# API OCORRÊNCIAS - TEMPO REAL (HEXAGON)
+# ============================================
+
+@csrf_exempt
 def api_ocorrencias_tempo_real(request):
     """
     API de ocorrências - BUSCA DIRETO DA API HEXAGON EM TEMPO REAL
@@ -1163,6 +1254,46 @@ def api_matriz_decisoria(request):
     return JsonResponse(dados)
 
 # ===== MATRIZ DECISÓRIA =====
+def matriz_decisoria(request):
+    """View principal da Matriz Decisória"""
+    return render(request, 'mapa_novo/matriz_decisoria.html')
+
+
+def api_matriz_decisoria(request):
+    """API para buscar dados da matriz decisória"""
+    dados = {
+        "EstagioOperacional": {
+            "EstagioOperacionalSugerido": 1,
+            "ValorEstagioOperacionalSugerido": 0.36,
+            "ProgressoEstagioOperacionalSugerido": 30
+        },
+        "NivelIndicado": {
+            "NivelG1": 1,
+            "NivelG2": 0,
+            "NivelG3": 0,
+            "NivelG4": 0,
+            "ProximidadeNivelSeguinte": 27.5
+        },
+        "NivelG1": {
+            "TabelaNivelG1": {
+                "ProgressoNivelG1": 100,
+                "NivelCalor": 1,
+                "Chuva": {"Total": "116", "ChuvaFraca": "4", "ChuvaModerada": "0", "ChuvaForte": "0", "ChuvaMuitoForte": "0"},
+                "Sirene": {"Total": "162", "Alarmada": "0"},
+                "Vento": {"VentoForte": "0", "VentoMuitoForte": "0", "VentoMediaH01": "8.6"}
+            }
+        },
+        "NivelG2": {"ProgressoNivelG2": 73, "Critica": 0, "MuitoAlta": 0, "Alta": 0, "Media": 1, "Baixa": 11},
+        "NivelG3": {
+            "ProgressoNivelG3": 0,
+            "StatusModal": {"Metrô": "Normal", "BRT": "Normal", "Trem": "Normal", "Ônibus": "Normal", "Barcas": "Normal", "VLT": "Normal", "GIG": "Normal", "SDU": "Normal"},
+            "Transito": {"EAC": 49},
+            "Modal": {"ModalEmAtencao": 0, "ModalInterrompido": 0}
+        },
+        "NivelG4": {"ProgressoNivelG4": 0, "MuitoAlta": 0, "Alta": 0, "Media": 0, "Baixa": 0, "Evento": None}
+    }
+    return JsonResponse(dados)
+
 @api_view(['GET'])
 def api_cameras(request):
     """API de câmeras de monitoramento"""
@@ -1821,6 +1952,92 @@ def waze_alerts_api(request):
 
 
 @csrf_exempt
+def chuva_api(request):
+    """API de dados de chuva/pluviômetros"""
+    try:
+        # TODO: Substituir por dados reais do banco
+        # Por enquanto, dados de exemplo
+        
+        pluviometros = [
+            {
+                'id': 1,
+                'nome': 'Alto da Boa Vista',
+                'lat': -22.9667,
+                'lng': -43.2833,
+                'chuva_15min': 12.5,
+                'chuva_1h': 25.3,
+                'chuva_24h': 45.8
+            },
+            {
+                'id': 2,
+                'nome': 'Tijuca',
+                'lat': -22.9333,
+                'lng': -43.2333,
+                'chuva_15min': 8.2,
+                'chuva_1h': 18.7,
+                'chuva_24h': 32.4
+            },
+            {
+                'id': 3,
+                'nome': 'Copacabana',
+                'lat': -22.9711,
+                'lng': -43.1822,
+                'chuva_15min': 2.1,
+                'chuva_1h': 5.3,
+                'chuva_24h': 12.7
+            },
+            {
+                'id': 4,
+                'nome': 'Barra da Tijuca',
+                'lat': -23.0050,
+                'lng': -43.3650,
+                'chuva_15min': 0.5,
+                'chuva_1h': 1.2,
+                'chuva_24h': 3.8
+            },
+            {
+                'id': 5,
+                'nome': 'Jacarepaguá',
+                'lat': -22.9211,
+                'lng': -43.3628,
+                'chuva_15min': 15.8,
+                'chuva_1h': 32.4,
+                'chuva_24h': 56.9
+            },
+            {
+                'id': 6,
+                'nome': 'Centro',
+                'lat': -22.9068,
+                'lng': -43.1729,
+                'chuva_15min': 6.3,
+                'chuva_1h': 14.5,
+                'chuva_24h': 28.2
+            },
+        ]
+        
+        # Estatísticas gerais
+        stats = {
+            'temperatura_media': 25.3,
+            'umidade_media': 68,
+            'chuva_24h': sum(p['chuva_24h'] for p in pluviometros) / len(pluviometros),
+            'vento_velocidade': 15
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'data': pluviometros,
+            'stats': stats,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
 def alertas_api(request):
     """API de alertas meteorológicos"""
     try:
@@ -1865,6 +2082,146 @@ def alertas_api(request):
         }, status=500)
 
 
+@csrf_exempt
+def estagio_api(request):
+    """API de estágio operacional"""
+    try:
+        estagios = ['Normalidade', 'Atenção', 'Alerta', 'Crise', 'Mobilização']
+        
+        return JsonResponse({
+            'success': True,
+            'estagio': 'Atenção',
+            'nivel': 2,
+            'descricao': 'Chuva moderada em algumas regiões',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+        
+
+        
+        
+@csrf_exempt
+def chuva_api(request):
+    """API de dados de chuva/pluviômetros"""
+    import random
+    
+    # 30 pluviômetros cobrindo toda a cidade do Rio
+    pluviometros = [
+        # ZONA NORTE
+        {'id': 1, 'nome': 'Tijuca', 'lat': -22.9333, 'lng': -43.2333, 
+         'chuva_15min': random.uniform(0, 15), 'chuva_1h': random.uniform(5, 30), 'chuva_24h': random.uniform(10, 50)},
+        {'id': 2, 'nome': 'Maracanã', 'lat': -22.9122, 'lng': -43.2302, 
+         'chuva_15min': random.uniform(0, 15), 'chuva_1h': random.uniform(5, 30), 'chuva_24h': random.uniform(10, 50)},
+        {'id': 3, 'nome': 'São Cristóvão', 'lat': -22.8994, 'lng': -43.2228, 
+         'chuva_15min': random.uniform(0, 15), 'chuva_1h': random.uniform(5, 30), 'chuva_24h': random.uniform(10, 50)},
+        {'id': 4, 'nome': 'Méier', 'lat': -22.9025, 'lng': -43.2789, 
+         'chuva_15min': random.uniform(0, 15), 'chuva_1h': random.uniform(5, 30), 'chuva_24h': random.uniform(10, 50)},
+        {'id': 5, 'nome': 'Vila Isabel', 'lat': -22.9164, 'lng': -43.2456, 
+         'chuva_15min': random.uniform(0, 15), 'chuva_1h': random.uniform(5, 30), 'chuva_24h': random.uniform(10, 50)},
+        
+        # ZONA SUL
+        {'id': 6, 'nome': 'Copacabana', 'lat': -22.9711, 'lng': -43.1822, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 7, 'nome': 'Ipanema', 'lat': -22.9838, 'lng': -43.2096, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 8, 'nome': 'Leblon', 'lat': -22.9844, 'lng': -43.2175, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 9, 'nome': 'Botafogo', 'lat': -22.9519, 'lng': -43.1828, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 10, 'nome': 'Lagoa', 'lat': -22.9711, 'lng': -43.2053, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 11, 'nome': 'Gávea', 'lat': -22.9797, 'lng': -43.2344, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 20), 'chuva_24h': random.uniform(5, 35)},
+        
+        # CENTRO
+        {'id': 12, 'nome': 'Centro', 'lat': -22.9068, 'lng': -43.1729, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(3, 25), 'chuva_24h': random.uniform(8, 40)},
+        {'id': 13, 'nome': 'Praça XV', 'lat': -22.9033, 'lng': -43.1752, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(3, 25), 'chuva_24h': random.uniform(8, 40)},
+        {'id': 14, 'nome': 'Lapa', 'lat': -22.9133, 'lng': -43.1786, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(3, 25), 'chuva_24h': random.uniform(8, 40)},
+        
+        # ZONA OESTE
+        {'id': 15, 'nome': 'Barra da Tijuca', 'lat': -23.0050, 'lng': -43.3650, 
+         'chuva_15min': random.uniform(0, 8), 'chuva_1h': random.uniform(1, 15), 'chuva_24h': random.uniform(3, 30)},
+        {'id': 16, 'nome': 'Recreio', 'lat': -23.0197, 'lng': -43.4597, 
+         'chuva_15min': random.uniform(0, 8), 'chuva_1h': random.uniform(1, 15), 'chuva_24h': random.uniform(3, 30)},
+        {'id': 17, 'nome': 'Jacarepaguá', 'lat': -22.9211, 'lng': -43.3628, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(5, 28), 'chuva_24h': random.uniform(10, 55)},
+        {'id': 18, 'nome': 'Cidade de Deus', 'lat': -22.9456, 'lng': -43.3592, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(5, 28), 'chuva_24h': random.uniform(10, 55)},
+        {'id': 19, 'nome': 'Campo Grande', 'lat': -22.9009, 'lng': -43.5615, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(3, 22), 'chuva_24h': random.uniform(8, 45)},
+        {'id': 20, 'nome': 'Bangu', 'lat': -22.8719, 'lng': -43.4664, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(3, 22), 'chuva_24h': random.uniform(8, 45)},
+        
+        # REGIÕES MONTANHOSAS (mais chuva)
+        {'id': 21, 'nome': 'Alto da Boa Vista', 'lat': -22.9667, 'lng': -43.2833, 
+         'chuva_15min': random.uniform(5, 25), 'chuva_1h': random.uniform(15, 45), 'chuva_24h': random.uniform(30, 80)},
+        {'id': 22, 'nome': 'Floresta da Tijuca', 'lat': -22.9442, 'lng': -43.2633, 
+         'chuva_15min': random.uniform(5, 25), 'chuva_1h': random.uniform(15, 45), 'chuva_24h': random.uniform(30, 80)},
+        {'id': 23, 'nome': 'Vista Chinesa', 'lat': -22.9583, 'lng': -43.2361, 
+         'chuva_15min': random.uniform(5, 25), 'chuva_1h': random.uniform(15, 45), 'chuva_24h': random.uniform(30, 80)},
+        {'id': 24, 'nome': 'Corcovado', 'lat': -22.9519, 'lng': -43.2106, 
+         'chuva_15min': random.uniform(5, 25), 'chuva_1h': random.uniform(15, 45), 'chuva_24h': random.uniform(30, 80)},
+        
+        # ILHA DO GOVERNADOR
+        {'id': 25, 'nome': 'Ilha do Governador', 'lat': -22.8147, 'lng': -43.2108, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 18), 'chuva_24h': random.uniform(5, 35)},
+        {'id': 26, 'nome': 'Galeão', 'lat': -22.8094, 'lng': -43.2436, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(2, 18), 'chuva_24h': random.uniform(5, 35)},
+        
+        # SUBÚRBIOS
+        {'id': 27, 'nome': 'Penha', 'lat': -22.8436, 'lng': -43.2775, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(4, 24), 'chuva_24h': random.uniform(10, 48)},
+        {'id': 28, 'nome': 'Pavuna', 'lat': -22.8117, 'lng': -43.3539, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(4, 24), 'chuva_24h': random.uniform(10, 48)},
+        {'id': 29, 'nome': 'Irajá', 'lat': -22.8328, 'lng': -43.3264, 
+         'chuva_15min': random.uniform(0, 12), 'chuva_1h': random.uniform(4, 24), 'chuva_24h': random.uniform(10, 48)},
+        {'id': 30, 'nome': 'Santa Cruz', 'lat': -22.9197, 'lng': -43.6836, 
+         'chuva_15min': random.uniform(0, 10), 'chuva_1h': random.uniform(3, 20), 'chuva_24h': random.uniform(7, 42)},
+    ]
+    
+    stats = {
+        'temperatura_media': round(random.uniform(22, 28), 1),
+        'umidade_media': random.randint(60, 85),
+        'chuva_24h': round(sum(p['chuva_24h'] for p in pluviometros) / len(pluviometros), 1),
+        'vento_velocidade': random.randint(10, 25)
+    }
+    
+    return JsonResponse({
+        'success': True,
+        'data': pluviometros,
+        'stats': stats,
+        'timestamp': datetime.now().isoformat()
+    })
+
+@csrf_exempt
+def alertas_api(request):
+    """API de alertas"""
+    alertas = [
+        {'id': 1, 'tipo': 'chuva_forte', 'severidade': 'alta', 
+         'titulo': 'Chuva Forte', 'mensagem': 'Chuva forte prevista',
+         'regiao': 'Zona Norte', 'lat': -22.9333, 'lng': -43.2333},
+        {'id': 2, 'tipo': 'alagamento', 'severidade': 'media',
+         'titulo': 'Risco de Alagamento', 'mensagem': 'Pontos de alagamento',
+         'regiao': 'Zona Sul', 'lat': -22.9711, 'lng': -43.1822}
+    ]
+    
+    return JsonResponse({
+        'success': True,
+        'alertas': alertas,
+        'total': len(alertas),
+        'timestamp': datetime.now().isoformat()
+    })
+
+
+ #VIDEO MONITORAMENTO - SEM LOGIN
 @login_required(login_url='login')
 @never_cache
 def videomonitoramento(request):
@@ -1880,6 +2237,25 @@ def cameras_api_local(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+def chuva_api(request):
+    pluviometros = [
+        {'id': 1, 'nome': 'Alto da Boa Vista', 'lat': -22.9667, 'lng': -43.2833, 
+         'chuva_15min': 12.5, 'chuva_1h': 25.3, 'chuva_24h': 45.8},
+        {'id': 2, 'nome': 'Tijuca', 'lat': -22.9333, 'lng': -43.2333, 
+         'chuva_15min': 8.2, 'chuva_1h': 18.7, 'chuva_24h': 32.4},
+    ]
+    return JsonResponse({'success': True, 'data': pluviometros, 
+        'stats': {'temperatura_media': 25.3, 'umidade_media': 68, 'chuva_24h': 29.1, 'vento_velocidade': 15}})
+
+@csrf_exempt
+def alertas_api(request):
+    alertas = [{'id': 1, 'tipo': 'chuva_forte', 'titulo': 'Chuva Forte', 
+                'mensagem': 'Chuva forte prevista', 'lat': -22.9333, 'lng': -43.2333}]
+    return JsonResponse({'success': True, 'alertas': alertas, 'total': 1})
+
+
+# VIDEO - SEM LOGIN - DEFINITIVO
 def video_dashboard(request):
     return render(request, 'mapa_novo/videomonitoramento.html')
 
@@ -2026,6 +2402,18 @@ def estagio_proxy(request):
             'inicio': '2025-11-09T18:00:00Z',
             'fallback': True
         }, status=500)
+
+@login_required(login_url='login')
+@never_cache
+def mobilidade_dashboard_view(request):
+    """Dashboard de Mobilidade Urbana"""
+    return render(request, 'mapa_novo/mobilidade_dashboard.html')
+
+@login_required(login_url='login')
+@never_cache
+def meteorologia_dashboard_view(request):
+    """Dashboard de Meteorologia"""
+    return render(request, 'mapa_novo/meteorologia_dashboard.html')
 
 def defesa_civil_view(request):
     """Sistema de Defesa Civil"""
@@ -2713,6 +3101,48 @@ def waze_api(request):
 
 
 @api_view(['GET'])
+def pluviometros_view(request):
+    """API de pluviômetros com dados de exemplo"""
+    dados_exemplo = [
+        {
+            "id": 1,
+            "nome": "Pluviômetro Centro",
+            "latitude": -22.9035,
+            "longitude": -43.2096,
+            "chuva_15min": 2.5,
+            "chuva_1h": 8.0,
+            "chuva_24h": 25.0,
+            "status": "normal"
+        },
+        {
+            "id": 2,
+            "nome": "Pluviômetro Tijuca",
+            "latitude": -22.9256,
+            "longitude": -43.2378,
+            "chuva_15min": 5.2,
+            "chuva_1h": 15.5,
+            "chuva_24h": 45.0,
+            "status": "atencao"
+        },
+        {
+            "id": 3,
+            "nome": "Pluviômetro Zona Sul",
+            "latitude": -22.9711,
+            "longitude": -43.1822,
+            "chuva_15min": 1.0,
+            "chuva_1h": 3.5,
+            "chuva_24h": 12.0,
+            "status": "normal"
+        }
+    ]
+    return Response({
+        'success': True,
+        'data': dados_exemplo,
+        'count': len(dados_exemplo)
+    })
+
+
+@api_view(['GET'])
 def eventos_view(request):
     """API de eventos com dados de exemplo"""
     eventos_exemplo = [
@@ -2775,6 +3205,18 @@ def ocorrencias_view(request):
 
 
 @api_view(['GET'])
+def calor_api(request):
+    """API de dados de calor"""
+    return Response({
+        'success': True,
+        'temperatura': 32.5,
+        'sensacao_termica': 38.0,
+        'umidade': 65,
+        'nivel_alerta': 'moderado'
+    })
+
+
+@api_view(['GET'])
 def mobilidade_api(request):
     """API de mobilidade"""
     return Response({
@@ -2813,6 +3255,46 @@ def test_api_sem_protecao(request):
 # ============================================
 # APIs DE MOBILIDADE
 # ============================================
+
+@api_view(['GET'])
+def api_transito_status(request):
+    """API de status do trânsito"""
+    import datetime
+    
+    hora_atual = datetime.datetime.now().hour
+    
+    # Simular status baseado na hora
+    if 7 <= hora_atual <= 9 or 17 <= hora_atual <= 19:
+        nivel = 3
+        descricao = "Trânsito Intenso"
+        cor = "#ef4444"
+        lentidao = 45
+        velocidade = 25
+    elif 10 <= hora_atual <= 16:
+        nivel = 2
+        descricao = "Trânsito Moderado"
+        cor = "#f59e0b"
+        lentidao = 20
+        velocidade = 40
+    else:
+        nivel = 1
+        descricao = "Trânsito Normal"
+        cor = "#10b981"
+        lentidao = 5
+        velocidade = 55
+    
+    return Response({
+        'success': True,
+        'data': {
+            'nivel': nivel,
+            'descricao': descricao,
+            'cor': cor,
+            'lentidao_km': lentidao,
+            'velocidade_media': velocidade,
+            'hora': hora_atual
+        }
+    })
+
 
 @api_view(['GET'])
 def api_brt(request):
@@ -2912,3 +3394,36 @@ def api_metro(request):
         'count': len(linhas)
     })
 
+
+@api_view(['GET'])
+def api_bike_rio(request):
+    """API de estações Bike Rio"""
+    import random
+    
+    estacoes = []
+    nomes = [
+        'Copacabana - Siqueira Campos', 'Ipanema - Praça General Osório',
+        'Leblon - Ataulfo de Paiva', 'Botafogo - Voluntários da Pátria',
+        'Flamengo - Praia do Flamengo', 'Centro - Praça XV'
+    ]
+    
+    for i, nome in enumerate(nomes):
+        bikes = random.randint(0, 15)
+        vagas = random.randint(5, 20)
+        
+        estacoes.append({
+            'id': i + 1,
+            'nome': nome,
+            'bikes_disponiveis': bikes,
+            'vagas_disponiveis': vagas,
+            'status': 'Operacional' if bikes > 0 else 'Sem Bikes'
+        })
+    
+    total_bikes = sum(e['bikes_disponiveis'] for e in estacoes)
+    
+    return Response({
+        'success': True,
+        'data': estacoes,
+        'count': len(estacoes),
+        'total_bikes': total_bikes
+    })

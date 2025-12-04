@@ -412,8 +412,8 @@ class DadosCameraVA(models.Model):
 	qt = models.CharField("Temperatura", max_length=250)
 	dado = models.CharField("Temperatura", max_length=250)
 	dia = models.CharField("Nivel", max_length=250)
-	hora = models.IntegerField("Nivel")
-	minuto = models.IntegerField("Nivel")
+	hora = models.IntegerField("Nivel", max_length=250)
+	minuto = models.IntegerField("Nivel", max_length=250)
 	hm = models.CharField("Nivel", max_length=250)
 
 	class Meta:
@@ -658,7 +658,7 @@ class OcorrenciaInterno(models.Model):
 
 
 	def save(self, *args, **kwargs):
-		geolocator = GoogleV3(api_key=os.environ.get("GOOGLE_MAPS_API_KEY", ""))
+		geolocator = GoogleV3(api_key="AIzaSyBke5pvPpmPU9EGo1iJj4cCm0dgpeTM-bc")
 		if self.rua != None:
 			try:
 				location = geolocator.geocode(self.rua+", "+self.numero+", "+self.bairro+", Rio de Janeiro, RJ")
@@ -2902,7 +2902,7 @@ class Alertas(models.Model):
 					#	pass
 						#cmd = ' '.join(["nohup", settings.CRAWL_SH_ABS_PATH, "db_profiles_spider", "ids", ids, '&'])
 					#	subprocess.call('nohup python3.6 /home/cocr.servicos/app_cor/mandar_alerta.py "'+str(self.id)+'" &', shell=True)
-							#push_service = FCMNotification(api_key=os.environ.get("FCM_API_KEY", ""))
+							#push_service = FCMNotification(api_key="AAAAjHO5ryo:APA91bHh0Q_I3vw9Q64HlCNtBQDsGT2oD00yyrmXs2a9mbKcKxJZY25DZfM5zK23ko-PzORMQUe31nV2BfvUG3J36I7xfQwLrIRzpcLVHuI1myPXfOl4Ft8a1zYhv1ANk9G0xhBn1U0F")
 							#foo_instance = Device_User.objects.all()
 							#for x in foo_instance:
 							#	try:
@@ -5055,8 +5055,8 @@ class DadosCameraVAG20(models.Model):
 	qt = models.CharField("Temperatura", max_length=250)
 	dado = models.CharField("Temperatura", max_length=250)
 	dia = models.CharField("Nivel", max_length=250)
-	hora = models.IntegerField("Nivel")
-	minuto = models.IntegerField("Nivel")
+	hora = models.IntegerField("Nivel", max_length=250)
+	minuto = models.IntegerField("Nivel", max_length=250)
 	hm = models.CharField("Nivel", max_length=250)
 
 	class Meta:
