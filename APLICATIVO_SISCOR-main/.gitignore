@@ -91,3 +91,14 @@ relatorio_sistema_*.txt
 # Scripts de correção temporários
 aplicar_*.py
 corrigir_*.py
+
+# Logs
+logs/*.log
+
+# Ambiente
+.env
+.env.local
+.env.production
+
+# Backups de fase
+*.backup_fase4_*
