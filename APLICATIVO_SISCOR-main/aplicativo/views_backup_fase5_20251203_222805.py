@@ -1,59 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-SISCOR - Sistema Integrado do Centro de Operacoes Rio
-Modulo: Views (APIs e Dashboards)
-
-Estrutura do arquivo:
-- Autenticacao (login, logout)
-- Dashboards (COR, Meteorologia, Mobilidade, etc.)
-- APIs de Estagio Operacional
-- APIs de Sirenes
-- APIs de Meteorologia
-- APIs de Ocorrencias e Eventos
-- APIs de Mobilidade (BRT, Metro, Bikes)
-- APIs de Cameras e Videomonitoramento
-- APIs de Integracao Waze
-
-Versao: 2.1.0 (Fase 5 - Organizacao)
+SISCOR - Views
+Sistema Integrado do Centro de Operações Rio
 """
 
-# =============================================================================
-# IMPORTS - BIBLIOTECA PADRAO
-# =============================================================================
 import re
-import base64
 import random
+import base64
 import logging
 import urllib3
+import requests
 from functools import lru_cache
 from datetime import datetime, timedelta
 
-# =============================================================================
-# IMPORTS - DJANGO
-# =============================================================================
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import cache_page, never_cache
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import AuthenticationForm
 from django.utils import timezone
 
-# =============================================================================
-# IMPORTS - DJANGO REST FRAMEWORK
-# =============================================================================
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-# =============================================================================
-# IMPORTS - TERCEIROS
-# =============================================================================
-import requests
-
-# =============================================================================
-# IMPORTS - MODELS LOCAIS
-# =============================================================================
 from .models import (
     Sirene,
     DadosSirene,
@@ -70,11 +39,8 @@ from .models import (
     Calor
 )
 
-# =============================================================================
-# CONFIGURACAO
-# =============================================================================
+# Configuração do Logger
 logger = logging.getLogger(__name__)
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def teste_sem_login(request):
     """Teste sem login"""
@@ -85,10 +51,6 @@ def teste_sem_login(request):
 # VIEWS DE PÁGINAS
 # ============================================
 
-# =============================================================================
-# DASHBOARDS WAZE
-# =============================================================================
-
 @login_required(login_url='login')
 @never_cache
 def waze_dashboard_view(request):
@@ -98,10 +60,6 @@ def waze_dashboard_view(request):
 # ============================================
 # APIs - SIRENES
 # ============================================
-
-# =============================================================================
-# APIs DE SIRENES
-# =============================================================================
 
 @never_cache
 def sirene_api(request):
@@ -176,10 +134,6 @@ def sirene_api(request):
 # ============================================
 # APIs - ESTÁGIOS DE MOBILIDADE
 # ============================================
-
-# =============================================================================
-# APIs DE ESTAGIO OPERACIONAL
-# =============================================================================
 
 @never_cache
 def estagio_api(request):
@@ -258,10 +212,6 @@ def estagio_api_app(request):
 # APIs - CHUVA/METEOROLOGIA
 # ============================================
 
-# =============================================================================
-# APIs DE METEOROLOGIA
-# =============================================================================
-
 @cache_page(60 * 5)  # Cache de 5 minutos
 def chuva_api(request):
     """
@@ -297,10 +247,6 @@ def chuva_api(request):
 # ============================================
 # APIs - EVENTOS
 # ============================================
-
-# =============================================================================
-# APIs DE EVENTOS E OCORRENCIAS
-# =============================================================================
 
 @never_cache
 def api_eventos(request):
@@ -519,10 +465,6 @@ def waze_dashboard_completo(request):
     }
 
     return render(request, 'mapa_novo/waze_dashboard.html', context)
-
-# =============================================================================
-# DASHBOARD COR PRINCIPAL
-# =============================================================================
 
 @login_required(login_url='login')
 @never_cache
@@ -1540,10 +1482,6 @@ def mobilidade_dashboard_view(request):
     return render(request, 'mapa_novo/mobilidade_dashboard.html')  # ← NOME REAL DO ARQUIVO
 
 
-# =============================================================================
-# APIs DE MOBILIDADE
-# =============================================================================
-
 @api_view(['GET'])
 def api_brt_linhas(request):
     """API de linhas de BRT"""
@@ -1784,10 +1722,6 @@ def api_transito_status(request):
         }, status=500)
         
         
-# =============================================================================
-# APIs WAZE
-# =============================================================================
-
 def waze_alerts_api(request):
     """
     API compatível com o frontend - redireciona para waze_data_view
@@ -1930,10 +1864,6 @@ def alertas_api(request):
             'alertas': []
         }, status=500)
 
-
-# =============================================================================
-# VIDEOMONITORAMENTO E CAMERAS
-# =============================================================================
 
 @login_required(login_url='login')
 @never_cache
@@ -2627,10 +2557,6 @@ from django.views.decorators.http import require_http_methods
 import logging
 
 logger = logging.getLogger(__name__)
-
-# =============================================================================
-# AUTENTICACAO
-# =============================================================================
 
 @never_cache
 @csrf_protect
