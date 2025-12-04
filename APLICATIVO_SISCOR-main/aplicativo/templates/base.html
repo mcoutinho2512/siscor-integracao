@@ -35,7 +35,14 @@
             overflow: hidden;
         }
     </style>
-</head>
+
+    <!-- PWA -->
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <link rel="stylesheet" href="{% static 'mapa_novo/css/ux_improvements.css' %}">
+    </head>
 
 <body>
     <!-- Navbar Superior -->
@@ -96,6 +103,8 @@
 
 
 
+
+    <script src="{% static 'mapa_novo/js/features/ux_improvements.js' %}"></script>
 </body>
 
 </html>

@@ -1,0 +1,340 @@
+/* =============================================================================
+   SISCOR - Melhorias de UI/UX (Fase 6)
+   ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+   LOADING STATES
+   ----------------------------------------------------------------------------- */
+.loading-skeleton {
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.cor-status-card.loading .cor-status-card-value {
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    color: transparent;
+    border-radius: 4px;
+}
+
+/* Spinner de carregamento */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #3b82f6;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* -----------------------------------------------------------------------------
+   TOOLTIPS
+   ----------------------------------------------------------------------------- */
+[data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    padding: 8px 12px;
+    background: #0f172a;
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    pointer-events: none;
+}
+
+[data-tooltip]::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border: 6px solid transparent;
+    border-top-color: #0f172a;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+[data-tooltip]:hover::before,
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* -----------------------------------------------------------------------------
+   FEEDBACK VISUAL MELHORADO
+   ----------------------------------------------------------------------------- */
+/* Efeito ripple nos botoes */
+.btn-ripple {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.4s ease, height 0.4s ease;
+}
+
+.btn-ripple:active::after {
+    width: 200px;
+    height: 200px;
+}
+
+/* Transicoes suaves */
+.cor-status-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cor-status-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+}
+
+/* Indicador de atualizacao */
+.update-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    animation: pulse-indicator 2s infinite;
+}
+
+@keyframes pulse-indicator {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* -----------------------------------------------------------------------------
+   ACESSIBILIDADE
+   ----------------------------------------------------------------------------- */
+/* Focus visible para navegacao por teclado */
+*:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Melhor contraste para textos */
+.cor-status-card-label {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.cor-status-card-subtitle {
+    color: #94a3b8;
+}
+
+/* Skip link para acessibilidade */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    background: #3b82f6;
+    color: white;
+    padding: 12px 24px;
+    z-index: 10000;
+    transition: top 0.3s;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Reducao de movimento para usuarios sensiveis */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   RESPONSIVIDADE MELHORADA
+   ----------------------------------------------------------------------------- */
+/* Mobile First */
+@media (max-width: 768px) {
+    .cor-monitoring-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 8px;
+    }
+    
+    .cor-status-card {
+        padding: 12px;
+    }
+    
+    .cor-status-card-value {
+        font-size: 24px;
+    }
+    
+    .cor-status-card-label {
+        font-size: 11px;
+    }
+    
+    .cor-navbar {
+        padding: 8px 12px;
+    }
+    
+    .layer-control-panel-novo {
+        width: 100%;
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .cor-monitoring-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .cor-status-card-value {
+        font-size: 20px;
+    }
+    
+    .notification-panel {
+        width: calc(100% - 20px);
+        right: 10px;
+        left: 10px;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+   DARK MODE MELHORADO
+   ----------------------------------------------------------------------------- */
+.dark-mode {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --border-color: rgba(255,255,255,0.1);
+    --accent-color: #3b82f6;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+}
+
+/* -----------------------------------------------------------------------------
+   ANIMACOES DE ENTRADA
+   ----------------------------------------------------------------------------- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.cor-status-card {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.cor-status-card:nth-child(1) { animation-delay: 0.1s; }
+.cor-status-card:nth-child(2) { animation-delay: 0.15s; }
+.cor-status-card:nth-child(3) { animation-delay: 0.2s; }
+.cor-status-card:nth-child(4) { animation-delay: 0.25s; }
+.cor-status-card:nth-child(5) { animation-delay: 0.3s; }
+.cor-status-card:nth-child(6) { animation-delay: 0.35s; }
+
+/* -----------------------------------------------------------------------------
+   NOTIFICACOES TOAST
+   ----------------------------------------------------------------------------- */
+.toast-container {
+    position: fixed;
+    bottom: 200px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    background: #1e293b;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #f8fafc;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideInRight 0.3s ease;
+    max-width: 350px;
+}
+
+.toast.success { border-left: 4px solid #10b981; }
+.toast.warning { border-left: 4px solid #f59e0b; }
+.toast.error { border-left: 4px solid #ef4444; }
+.toast.info { border-left: 4px solid #3b82f6; }
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: auto;
+}
+
+.toast-close:hover {
+    color: #f8fafc;
+}
